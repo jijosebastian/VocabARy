@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Write the Translation</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+  <script src="https://cdn.jsdelivr.net/npm/handtrackjs/dist/handtrack.min.js"></script>
+</head>
+<body>
+  <h2>Write the translation for "{{ original_word }}" in {{ target_language }}</h2>
+  <canvas id="drawCanvas" width="500" height="300" style="border:2px solid #000;"></canvas>
+  <br>
+  <button id="submitBtn">Check Accuracy</button>
+
+  <p id="result"></p>
+
+  <script>
+    const canvas = document.getElementById('drawCanvas');
+    const ctx = canvas.getContext('2d');
+    let drawing = false;
+
+    canvas.addEventListener('mousedown', () => drawing = true);
+    canvas.addEventListener('mouseup', () => drawing = false);
+    canvas.addEventListener('mousemove', draw);
+
+    function draw(e) {
+      if (!drawing) return;
+      ctx.lineWidth = 4;
+      ctx.lineCap = 'round';
+      ctx.strokeStyle = '#000';
+      ctx.lineTo(e.offsetX, e.offsetY);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(e.offsetX, e.offsetY);
+    }
+
+    document.getElementById('submitBtn').addEventListener('click', async () => {
+      const userInput = prompt("What word did you write?");
+      const response = await fetch('/check_handwriting/', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          user_text: userInput,
+          correct_text: "{{ correct_translation }}"
+        })
+      });
+      const result = await response.json();
+      document.getElementById('result').innerText =
+        result.accuracy ? `Accuracy: ${result.accuracy}%` : 'Error checking handwriting.';
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,198 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Gesture Writing Practice - {{ translated_word }}</title>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+  <style>
+    body {
+      background: #111;
+      color: #fff;
+      text-align: center;
+      font-family: 'Poppins', sans-serif;
+    }
+
+    .canvas-container {
+      position: relative;
+      display: inline-block;
+      margin-top: 20px;
+    }
+
+    video, canvas {
+      border: 2px solid #fff;
+      border-radius: 8px;
+      display: block;
+    }
+
+    #cameraCanvas, #drawCanvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+
+    #accuracy {
+      font-size: 1.4em;
+      margin-top: 20px;
+    }
+
+    button {
+      background: #ff7043;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 6px;
+      margin: 10px;
+      cursor: pointer;
+      font-weight: bold;
+      font-size: 1em;
+    }
+
+    button:hover {
+      background: #ff5722;
+    }
+
+    #predicted, #correct {
+      font-size: 1.2em;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h1>✍️ Write this word in French:</h1>
+  <h2 style="color:#ff7043;">{{ translated_word }}</h2>
+  <p>Move your index finger to draw letters in the air.</p>
+
+  <div class="canvas-container">
+    <video id="videoInput" width="640" height="480" autoplay muted playsinline></video>
+    <canvas id="cameraCanvas" width="640" height="480"></canvas>
+    <canvas id="drawCanvas" width="640" height="480"></canvas>
+  </div>
+
+  <div id="accuracy"></div>
+  <div id="predicted"></div>
+  <div id="correct"></div>
+
+  <button id="clearBtn">Clear Canvas</button>
+  <button id="checkBtn">Check Prediction</button>
+
+<script>
+  const video = document.getElementById('videoInput');
+  const cameraCanvas = document.getElementById('cameraCanvas');
+  const drawCanvas = document.getElementById('drawCanvas');
+  const camCtx = cameraCanvas.getContext('2d');
+  const drawCtx = drawCanvas.getContext('2d');
+  const accuracyDisplay = document.getElementById('accuracy');
+  const predictedDisplay = document.getElementById('predicted');
+  const correctDisplay = document.getElementById('correct');
+
+  // Initialize semi-transparent background
+  drawCtx.fillStyle = 'rgba(255, 255, 255, 0.2)'; 
+  drawCtx.fillRect(0, 0, drawCanvas.width, drawCanvas.height);
+
+  let prevX = null, prevY = null;
+  let drawing = false;
+
+  const hands = new Hands({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}` });
+
+  hands.setOptions({
+    maxNumHands: 1,
+    modelComplexity: 1,
+    minDetectionConfidence: 0.7,
+    minTrackingConfidence: 0.7,
+  });
+
+  hands.onResults(onResults);
+
+  const cameraObj = new Camera(video, {
+    onFrame: async () => { await hands.send({ image: video }); },
+    width: 640,
+    height: 480
+  });
+  cameraObj.start();
+
+  function onResults(results) {
+    camCtx.save();
+    camCtx.clearRect(0, 0, cameraCanvas.width, cameraCanvas.height);
+    camCtx.scale(-1, 1);
+    camCtx.drawImage(results.image, -cameraCanvas.width, 0, cameraCanvas.width, cameraCanvas.height);
+    camCtx.restore();
+
+    if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+      const landmarks = results.multiHandLandmarks[0];
+      const indexTip = landmarks[8];
+
+      const x = (1 - indexTip.x) * drawCanvas.width;
+      const y = indexTip.y * drawCanvas.height;
+
+      if (drawing && prevX !== null && prevY !== null) {
+        drawCtx.beginPath();
+        drawCtx.strokeStyle = 'rgba(0, 0, 0, 1)'; 
+        drawCtx.lineWidth = 20;       
+        drawCtx.lineJoin = 'round';
+        drawCtx.lineCap = 'round';
+        drawCtx.moveTo(prevX, prevY);
+        drawCtx.lineTo(x, y);
+        drawCtx.stroke();
+      }
+
+      prevX = x;
+      prevY = y;
+    }
+  }
+
+  // Toggle drawing with D key
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'd') {
+      drawing = !drawing;
+    }
+  });
+
+  document.getElementById('clearBtn').addEventListener('click', () => {
+    // Clear only the drawn strokes while keeping the background
+    drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+
+    // Redraw the semi-transparent background
+    drawCtx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+    drawCtx.fillRect(0, 0, drawCanvas.width, drawCanvas.height);
+
+    // Reset previous coordinates
+    prevX = prevY = null;
+
+    // Clear text messages
+    accuracyDisplay.innerHTML = '';
+    predictedDisplay.innerHTML = '';
+    correctDisplay.innerHTML = '';
+});
+
+
+
+  document.getElementById('checkBtn').addEventListener('click', async () => {
+    const imgData = drawCanvas.toDataURL('image/png');
+
+    const response = await fetch("{% url 'check_gesture' %}", {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': '{{ csrf_token }}'
+      },
+      body: JSON.stringify({
+        correct_word: "{{ translated_word }}",
+        image: imgData
+      })
+    });
+
+    const data = await response.json();
+    if (data.status === 'success') {
+      accuracyDisplay.innerHTML = `✅ Accuracy: <b>${data.accuracy}%</b>`;
+      predictedDisplay.innerHTML = `Predicted word: <b>${data.predicted_word}</b>`;
+      correctDisplay.innerHTML = `Correct word: <b>{{ translated_word }}</b>`;
+    } else {
+      accuracyDisplay.innerText = `⚠️ Error: ${data.message}`;
+    }
+  });
+</script>
+</body>
+</html>

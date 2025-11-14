@@ -1,0 +1,234 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>VocabARy - Learn {{ original_word }}</title>
+    <link href="{% static 'styles.css' %}" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet"/>
+    <style>
+    body {
+        font-family: 'Inter', sans-serif;
+        background: linear-gradient(180deg, #f2f6fa 0%, #eaf2f8 100%);
+        color: #333;
+        margin: 0;
+        padding: 0;
+        min-height: 100vh;
+    }
+
+    .container {
+        max-width: 850px;
+        margin: 60px auto;
+        padding: 25px;
+        text-align: center;
+    }
+
+    h1 {
+        font-size: 2.2em;
+        color: #1d3557;
+        margin-bottom: 10px;
+    }
+
+    .target-lang {
+        color: #5c677d;
+        font-style: italic;
+        margin-bottom: 30px;
+    }
+
+    .detail-card {
+        background-color: #ffffff;
+        color: #333;
+        padding: 30px;
+        margin-bottom: 25px;
+        border-radius: 16px;
+        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .detail-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12);
+    }
+
+    h2 {
+        color: #0077b6;
+        margin-bottom: 12px;
+    }
+
+    .translated-text {
+        font-size: 2.5em;
+        margin: 10px 0;
+        color: #0077b6;
+        font-weight: 700;
+    }
+
+    .transliterated-text {
+        font-size: 1.4em;
+        color: #495057;
+    }
+
+    #record-btn {
+        background-color: #00b4d8;
+        border: none;
+        border-radius: 12px;
+        color: white;
+        cursor: pointer;
+        padding: 14px 35px;
+        font-size: 1.1em;
+        font-weight: 600;
+        transition: background-color 0.2s, transform 0.2s;
+    }
+
+    #record-btn:hover {
+        background-color: #0096c7;
+        transform: scale(1.05);
+    }
+
+    #record-btn:active {
+        background-color: #0077b6;
+        transform: scale(0.98);
+    }
+
+    #feedback-message {
+        margin-top: 18px;
+        font-weight: 500;
+    }
+
+    #result-display {
+        margin-top: 10px;
+        font-size: 1.1em;
+        color: #444;
+    }
+
+    .back-link {
+        display: inline-block;
+        margin-top: 30px;
+        text-decoration: none;
+        color: #0077b6;
+        font-weight: 600;
+        transition: color 0.2s;
+    }
+
+    .back-link:hover {
+        color: #023e8a;
+        text-decoration: underline;
+    }
+</style>
+
+</head>
+<body>
+    <div class="container">
+        <h1>Learning Vocabulary in {{ target_language_name }}</h1>
+        <p class="target-lang">Original Word: {{ original_word }}</p>
+
+        <div class="card detail-card">
+            <h2>Translation</h2>
+            <p class="translated-text" id="target-word">{{ translation }}</p> 
+        </div>
+
+        <div class="card detail-card">
+            <h2>Pronunciation Guide</h2>
+            <p class="transliterated-text">{{ transliteration }}</p>
+        </div>
+
+        <div class="card detail-card pronunciation-checker">
+            <h2>Practice Pronunciation</h2>
+            <button id="record-btn">🎙️ Hold to Speak</button>
+            <p id="feedback-message">**Try to pronounce the word above!**</p>
+            <div id="result-display"></div>
+        </div>
+
+        <a href="{% url 'detection' %}" class="back-link">← Back to Live Detection</a>
+    </div>
+<script>
+    // ✅ Speech Recognition with Pronunciation Scoring
+    window.SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if ('SpeechRecognition' in window) {
+        const recognition = new SpeechRecognition();
+        recognition.continuous = false;
+        recognition.interimResults = false;
+        recognition.lang = 'en-US';
+
+        const recordBtn = document.getElementById('record-btn');
+        const feedback = document.getElementById('feedback-message');
+        const resultDisplay = document.getElementById('result-display');
+        const targetWord = "{{ transliteration|lower }}";
+
+        recordBtn.addEventListener('mousedown', () => {
+            recognition.start();
+            recordBtn.innerText = '🎤 Listening...';
+            feedback.innerText = 'Listening... Speak now!';
+            resultDisplay.innerText = '';
+        });
+
+        recordBtn.addEventListener('mouseup', () => {
+            recognition.stop();
+            recordBtn.innerText = '🎙️ Hold to Speak';
+        });
+
+        recognition.addEventListener('result', (event) => {
+            const spoken = event.results[0][0].transcript.trim().toLowerCase();
+            const similarity = calculateSimilarity(spoken, targetWord);
+            const score = Math.round(similarity * 100);
+
+            let color;
+            if (score >= 85) color = "green";
+            else if (score >= 60) color = "orange";
+            else color = "red";
+
+            resultDisplay.innerHTML = `
+                <p>Your Pronunciation: <strong>${spoken}</strong></p>
+                <p style="color:${color}; font-size:1.3em;">
+                    Pronunciation Score: ${score}%
+                </p>
+                <div style="width:100%;background:#ddd;border-radius:10px;margin-top:10px;">
+                    <div style="width:${score}%;height:10px;background:${color};border-radius:10px;transition:width 0.3s;"></div>
+                </div>
+            `;
+
+            feedback.style.color = color;
+            feedback.innerText =
+                score >= 85 ? "✅ Excellent pronunciation!" :
+                score >= 60 ? "👍 Pretty good! Keep practicing!" :
+                "❌ Try again, focus on sounds.";
+        });
+
+        recognition.addEventListener('error', (event) => {
+            feedback.style.color = 'red';
+            feedback.innerText = 'Speech recognition error: ' + event.error;
+        });
+    } else {
+        alert("Your browser doesn't support Speech Recognition. Please use Chrome.");
+    }
+
+    // 🔠 Helper functions to calculate similarity
+    function calculateSimilarity(str1, str2) {
+        const longer = str1.length > str2.length ? str1 : str2;
+        const shorter = str1.length > str2.length ? str2 : str1;
+        const longerLength = longer.length;
+        if (longerLength === 0) return 1.0;
+        const editDist = getEditDistance(longer, shorter);
+        return (longerLength - editDist) / parseFloat(longerLength);
+    }
+
+    function getEditDistance(a, b) {
+        const matrix = [];
+        for (let i = 0; i <= b.length; i++) matrix[i] = [i];
+        for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
+        for (let i = 1; i <= b.length; i++) {
+            for (let j = 1; j <= a.length; j++) {
+                if (b.charAt(i - 1) === a.charAt(j - 1)) matrix[i][j] = matrix[i - 1][j - 1];
+                else matrix[i][j] = Math.min(
+                    matrix[i - 1][j - 1] + 1, // substitution
+                    matrix[i][j - 1] + 1,     // insertion
+                    matrix[i - 1][j] + 1      // deletion
+                );
+            }
+        }
+        return matrix[b.length][a.length];
+    }
+</script>
+
+</body>
+</html>

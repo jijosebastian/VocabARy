@@ -1,0 +1,121 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>vocABARy</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet"/>
+  <link href="{% static 'styles.css' %}" rel="stylesheet">
+</head>
+<body>
+
+  <nav class="navbar">
+    <div class="nav-left">
+      <span class="logo">vocab<span class="highlight">AR</span>y</span>
+      <ul class="nav-links">
+        <li><a href="#">Home</a></li>
+        <li><a href="{% url 'word_list' %}">My Lists</a></li>
+      </ul>
+    </div>
+    <div class="nav-right">
+      <select class="language-select" id="languageDropdown">
+        <option value="tamil" selected>Tamil</option>
+        <option value="telugu">Telugu</option>
+        <option value="kannada">Kannada</option>
+        <option value="hindi">Hindi</option>
+        <option value="french">French</option>
+      </select>
+      
+      <div class="points">⭐ 10</div>
+      <div class="word-count">📘 0 words</div>
+    </div>
+  </nav>
+  
+
+  <section class="main-section">
+    <h1>vocab<span style="color:#e38ef3;">AR</span></h1>
+    <p class="sub-text">Learn vocabulary in a natural way by pointing your camera at objects around you</p>
+
+    <div class="info-cards">
+      <div class="info-card">Current Language<br><strong id="currentLang">Tamil</strong></div>
+      <div class="info-card">Your Level<br><strong id="userLevel">1</strong></div>
+      <div class="info-card">Words Learned<br><strong id="wordsLearned">0</strong></div>
+    </div>
+
+    <a href="{% url 'detection' %}"><button class="cta-button">▶ Start Learning Now</button></a>
+  </section>
+
+  <section class="features-section">
+    <h2>Amazing Features</h2>
+    <p>Discover all the powerful tools and capabilities that vocaBARy brings to make your language learning journey exciting and effective.</p>
+
+    <div class="features-grid">
+      <div class="feature-box">
+        <div class="feature-title">📷 Identify Objects in Real-Time</div>
+        <p>Point your camera at objects around you and instantly see what they are in both English and your chosen language.</p>
+      </div>
+      <div class="feature-box">
+        <div class="feature-title">🌐 Learn in Multiple Languages</div>
+        <p>Choose from several languages including Tamil, Hindi, Telugu, Malayalam and more.</p>
+      </div>
+      <div class="feature-box">
+        <div class="feature-title">📴 Works Completely Offline</div>
+        <p>No internet connection needed after initial setup. Perfect for learning anywhere.</p>
+      </div>
+      <div class="feature-box">
+        <div class="feature-title">📊 Track Your Learning Progress</div>
+        <p>Keep track of words you’ve learned and watch your vocabulary grow day by day.</p>
+      </div>
+      <div class="feature-box">
+        <div class="feature-title">🎉 Celebrate Your Achievements</div>
+        <p>Earn points and see fun confetti animations when you learn new words.</p>
+      </div>
+      <div class="feature-box">
+        <div class="feature-title">🕶️ Augmented Reality Experience</div>
+        <p>Enjoy an immersive learning experience with AR features on supported devices.</p>
+      </div>
+      <div class="feature-box">
+        <div class="feature-title">📝 Custom Vocabulary Lists</div>
+        <p>Create your own vocabulary lists to organize and review words by topics or categories.</p>
+      </div>
+      <div class="feature-box">
+        <div class="feature-title">💬 Interactive Learning Cards</div>
+        <p>Detailed word cards with pronunciation guides and example contexts for better retention.</p>
+      </div>
+      <div class="feature-box">
+        <div class="feature-title">🖥️ Multi-Device Support</div>
+        <p>Use the app on mobile, tablet, or desktop with seamless experience across all.</p>
+      </div>
+      <div class="feature-box">
+        <div class="feature-title">🔗 Social Sharing</div>
+        <p>Share your learning progress and achievements with friends and family.</p>
+      </div>
+      <div class="feature-box">
+        <div class="feature-title">📈 Personalized Learning Path</div>
+        <p>Smart algorithm that adapts to your learning pace and focuses on words you need to practice.</p>
+      </div>
+      <div class="feature-box">
+        <div class="feature-title">🎮 Educational Games</div>
+        <p>Fun mini-games that reinforce vocabulary learning through different challenges.</p>
+      </div>
+    </div>
+  </section>
+
+  <div class="footer">
+    Made with <span>❤️</span> by Saran, Shreeja, Manish, Nihal
+  </div>
+  <script>
+    const langDropdown = document.getElementById('languageDropdown');
+    const currentLang = document.getElementById('currentLang');
+
+    langDropdown.addEventListener('change', () => {
+      currentLang.textContent = langDropdown.options[langDropdown.selectedIndex].text;
+    });
+
+    function startLearning() {
+      alert("Start Learning feature will be connected soon!");
+    }
+  </script>
+</body>
+</html>

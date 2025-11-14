@@ -1,0 +1,201 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>vocABARy</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+    <link href="{% static 'styles.css' %}" rel="stylesheet">
+</head>
+
+<body>
+    <nav class="navbar">
+        <div class="nav-left">
+            <span class="logo">vocab<span class="highlight">AR</span>y</span>
+            <ul class="nav-links">
+                <li><a href="#">Home</a></li>
+                <li><a href="{% url 'word_list' %}">My Lists</a></li>
+            </ul>
+        </div>
+        <div class="nav-right">
+            <select class="language-select" id="languageDropdown">
+                <option value="tamil" selected>Tamil</option>
+                <option value="telugu">Telugu</option>
+                <option value="kannada">Kannada</option>
+                <option value="hindi">Hindi</option>
+                <option value="french">French</option>
+                <option value="japanese">Japanese</option>
+            </select>
+
+            <div class="points">⭐ 10</div>
+            <div class="word-count">📘 {{ detected_objects|length }} words</div>
+        </div>
+    </nav>
+
+    <section class="main-section">
+        <h1>vocab<span style="color:#e38ef3;">AR</span>y</h1>
+        <p class="sub-text">Learn vocabulary in a natural way by pointing your camera at objects around you</p>
+
+        <div class="cards-container">
+            {% for obj in detected_objects %}
+            <div class="card {% if obj.learnt %}learnt{% endif %}" data-name="{{ obj.name }}">
+                <h3>{{ obj.name }}</h3>
+                {% if obj.learnt %}
+                <span class="learnt-badge">Learnt</span>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- MODAL -->
+        <div id="wordModal" class="modal">
+            <div class="modal-content">
+                <h2 id="modalWord" class="modal-word">Word</h2>
+                <p id="modalTranslation" class="modal-translation">Translation</p>
+                <p id="modalPronunciation" class="modal-pronunciation"></p>
+                <button id="speakBtn" class="speak-btn">
+                    🎤 Hold to Speak
+                </button>
+                <button id="closeModal" class="close-btn">Close</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- JavaScript -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Language selection
+            const languageDropdown = document.getElementById('languageDropdown');
+            let selectedLang = languageDropdown.value;
+            languageDropdown.addEventListener('change', () => {
+                selectedLang = languageDropdown.value;
+            });
+
+            // Modal elements
+            const wordModal = document.getElementById('wordModal');
+            const modalWord = document.getElementById('modalWord');
+            const modalTranslation = document.getElementById('modalTranslation');
+            const modalPronunciation = document.getElementById('modalPronunciation');
+            const closeModalBtn = document.getElementById('closeModal');
+            const speakBtn = document.getElementById('speakBtn');
+            let currentWord = "";
+
+            // Set up speech recognition
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            const recognition = new SpeechRecognition();
+            recognition.lang = "en-IN";
+            recognition.interimResults = false;
+            recognition.continuous = false;
+
+            // Card click handler
+            document.querySelectorAll('.card').forEach(card => {
+                card.addEventListener('click', async function() {
+                    currentWord = this.dataset.name;
+                    modalWord.textContent = currentWord;
+                    modalTranslation.textContent = "Loading...";
+                    modalPronunciation.textContent = "";
+                    
+                    wordModal.classList.add('active');
+                    
+                    try {
+                        const response = await fetch(`/translate/?word=${encodeURIComponent(currentWord)}&lang=${encodeURIComponent(selectedLang)}`);
+                        const data = await response.json();
+                        
+                        if (data.translated) {
+                            modalTranslation.textContent = data.translated;
+                            if (data.pronunciation) {
+                                modalPronunciation.textContent = `"${data.pronunciation}"`;
+                            }
+                        } else {
+                            modalTranslation.textContent = "Translation not available";
+                        }
+                    } catch (error) {
+                        console.error('Translation error:', error);
+                        modalTranslation.textContent = "Translation failed";
+                    }
+                });
+            });
+
+            // Close modal handlers
+            closeModalBtn.addEventListener('click', () => {
+                wordModal.classList.remove('active');
+            });
+
+            wordModal.addEventListener('click', (e) => {
+                if (e.target === wordModal) {
+                    wordModal.classList.remove('active');
+                }
+            });
+
+            // Speech recognition handlers
+            speakBtn.addEventListener('mousedown', () => {
+                speakBtn.textContent = "🎤 Listening...";
+                recognition.start();
+            });
+
+            speakBtn.addEventListener('mouseup', () => {
+                speakBtn.textContent = "🎤 Hold to Speak";
+                recognition.stop();
+            });
+
+            recognition.onresult = function(event) {
+                const spoken = event.results[0][0].transcript.toLowerCase().trim();
+                const correct = modalTranslation.textContent.toLowerCase();
+                const pronunciation = modalPronunciation.textContent.toLowerCase().replace(/"/g, '');
+
+                // Check against both translation and pronunciation
+                if (spoken === correct || spoken === pronunciation) {
+                    alert("✅ Correct! You earned 10 points!");
+
+                    fetch("{% url 'update_score_and_learn' %}", {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': '{{ csrf_token }}'
+                        },
+                        body: JSON.stringify({
+                            word: currentWord,
+                            lang: selectedLang
+                        })
+                    }).then(response => {
+                        if (response.ok) {
+                            window.location.reload();
+                        } else {
+                            alert("Error saving your progress. Please try again.");
+                        }
+                    }).catch(error => {
+                        console.error('Error:', error);
+                        alert("Network error. Please try again.");
+                    });
+                } else {
+                    alert(`❌ Incorrect! You said: "${spoken}". Try again!`);
+                }
+            };
+
+            recognition.onerror = function(event) {
+                console.error('Speech recognition error', event.error);
+                speakBtn.textContent = "🎤 Hold to Speak";
+                if (event.error === 'not-allowed') {
+                    alert('Microphone access denied. Please enable microphone permissions.');
+                }
+            };
+
+            // Keyboard accessibility for cards
+            document.querySelectorAll('.card').forEach(card => {
+                card.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        card.click();
+                    }
+                });
+                
+                // Make cards focusable
+                card.setAttribute('tabindex', '0');
+            });
+        });
+    </script>
+</body>
+
+</html>
